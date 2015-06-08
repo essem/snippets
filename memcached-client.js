@@ -1,5 +1,6 @@
 var assert = require('assert')
 var net = require('net')
+var fs = require('fs')
 
 // -----------------------------------------------------------------------------
 
@@ -64,6 +65,14 @@ Unpacker.prototype.str = function(length) {
   var v = this.buf.toString(v, this.pos, this.pos + length)
   this.pos += length
   return v
+}
+
+// -----------------------------------------------------------------------------
+
+function dumpToFile(filename, buf) {
+  var fd = fs.openSync(filename, 'w')
+  fs.writeSync(fd, buf, 0, buf.length)
+  fs.closeSync(fd)
 }
 
 // -----------------------------------------------------------------------------
@@ -169,8 +178,12 @@ function handlePacket(buf) {
   console.log(header)
 
   if (header.opcode == 1) {
+    //dumpToFile('set_response.packet', buf)
+
     sendGet(client, 'hello')
   } else if (header.opcode == 0) {
+    //dumpToFile('get_response.packet', buf)
+
     assert.equal(header.extrasLen, 4)
     assert.equal(header.keyLen, 0)
 
@@ -197,11 +210,13 @@ client.on('data', function(buf) {
   while (recvBuf.length >= HEADER_SIZE) {
     var bodySize = recvBuf.readUInt32BE(8)
     var packetSize = HEADER_SIZE + bodySize
-    if (recvBuf.length >= packetSize) {
-      var packet = recvBuf.slice(0, packetSize)
-      recvBuf = recvBuf.slice(packetSize)
-      handlePacket(packet)
+    if (recvBuf.length < packetSize) {
+      break
     }
+
+    var packet = recvBuf.slice(0, packetSize)
+    recvBuf = recvBuf.slice(packetSize)
+    handlePacket(packet)
   }
 })
 
